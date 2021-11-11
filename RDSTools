@@ -1,0 +1,62 @@
+# Log off Individual Users on a RDS server with a Broker. 
+# While executing the script you can input usernames. 
+#
+#
+#
+#
+#
+
+Get-Module -ListAvailable | Out-Null
+Import-Module -Name RemoteDesktop
+Add-Type -AssemblyName PresentationCore,PresentationFramework | Out-Null
+
+# Put your brokers server here. 
+$Connectionbroker = "broker.example.local"
+
+$ActiveUser = (Get-RDUserSession -ConnectionBroker $Connectionbroker)
+
+if ($ActiveUser -eq $null) 
+{
+
+$ButtonType = [System.Windows.MessageBoxButton]::OK
+$MessageboxTitle = “Users”
+$Messageboxbody = “There are no Users connected”
+$MessageIcon = [System.Windows.MessageBoxImage]::Warning
+
+[System.Windows.MessageBox]::Show($Messageboxbody,$MessageboxTitle,$ButtonType)
+
+}
+ 
+Else {
+
+$ActiveUser | Sort-Object -Property Name -Descending | Select-Object -Property UserName,HostServer,SessionState | ft -AutoSize
+
+[void][Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+$title = 'Logoff Users'
+$msg   = 'Specify the user(s) who need to logoff sepparated by a comma withouth space:'
+$text = [Microsoft.VisualBasic.Interaction]::InputBox($msg, $title)
+$userarray = $text.Split(",")
+Foreach ($user in $userarray) {
+ 
+$ActiveUser |  Where-Object {$_.Username -like $user} | Invoke-RDUserLogoff -Force | Out-Null
+
+Write-Host "Wait 20 seconds for conformation"
+ 
+Start-Sleep -Seconds 20
+
+$discUser = (Get-RDUserSession -ConnectionBroker $Connectionbroker)
+
+Foreach ($loguser in $userarray){
+$OffUser = ($discUser | Where-Object {$_.Username -like $loguser})
+
+if ($OffUser -eq $null) {
+
+    Write-Host "User $loguser has been logged off"
+                        }
+Else {Write-Host "User $loguser is active"}
+}
+
+}
+}
+Write-Host "End of Script"
+Start-Sleep -Seconds 20
